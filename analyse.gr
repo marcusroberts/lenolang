@@ -1,0 +1,82 @@
+module Analyze
+
+from "./parser.gr" include Parser
+from "list" include List
+
+provide enum TType {
+  TVoid,
+  TInt,
+  TString,
+}
+
+provide let typeAsString = (ttype: TType) => {
+  match (ttype) {
+    TVoid => "Void",
+    TInt => "Int",
+    TString => "String",
+  }
+}
+
+provide record TStatement {
+  statement: Parser.Statement,
+  ttype: TType,
+}
+
+provide record TExpression {
+  expression: Parser.Expression,
+  ttype: TType,
+}
+
+provide record TProgram {
+  typed_statements: List<TStatement>,
+}
+
+let process_expression = (expression: Parser.Expression) => {
+  let expression_type = match (expression) {
+    PNumber(_) => TInt,
+    PString(_) => TString,
+    _ => TVoid,
+  }
+
+  let typed: TExpression = { expression, ttype: expression_type }
+  return typed
+}
+
+let process_statement = (statement: Parser.Statement) => {
+  let typed: TStatement = match (statement) {
+    NullStatement => { statement, ttype: TVoid },
+    PrintStatement(_) => { statement, ttype: TVoid },
+    PAssign(_, _) => { statement, ttype: TVoid },
+    ExpressionStatement(expression) => {
+      let typed_expression = process_expression(expression)
+      let typed_statement: TStatement = {
+        statement,
+        ttype: typed_expression.ttype,
+      }
+      typed_statement
+    },
+  }
+
+  return typed
+}
+
+let process_statements = (statements: List<Parser.Statement>) => {
+  let types_statements = List.map(stmt => process_statement(stmt), statements)
+  return types_statements
+}
+
+let assign_types = (ast: Parser.Program) => {
+  // let result: TProgram = { statements: [], }
+  process_statements(ast.statements)
+}
+
+provide let debug_statement = (stmt: TStatement) => {
+  print("Typed statement: " ++ typeAsString(stmt.ttype))
+}
+
+provide let analyse = (ast: Parser.Program) => {
+  print("Analyzing program")
+  let types_tree = assign_types(ast)
+
+  List.forEach(stmt => debug_statement(stmt), types_tree)
+}
