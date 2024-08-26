@@ -1,0 +1,130 @@
+module Tokenizer
+
+from "regex" include Regex
+from "result" include Result
+from "string" include String
+from "option" include Option
+from "result" include Result
+from "exception" include Exception
+from "list" include List
+from "array" include Array
+
+provide exception SyntaxError(String)
+
+provide enum TokenType {
+  Variable,
+  TString,
+  Print,
+  Number,
+  Identifier,
+  Addition,
+  Subtraction,
+  Multiplication,
+  Division,
+  Exponentiation,
+  Parens_Left,
+  Parens_Right,
+  Semicolon,
+  Assignment,
+  NoToken,
+}
+
+provide let tokenTypeToString = (tokentype: TokenType) => {
+  match (tokentype) {
+    Variable => "variable",
+    TString => "string",
+    Print => "print",
+    Number => "number",
+    Identifier => "identifier",
+    Addition => "+",
+    Subtraction => "-",
+    Multiplication => "*",
+    Division => "/",
+    Exponentiation => "^",
+    Parens_Left => "()",
+    Parens_Right => ")",
+    Semicolon => ";",
+    Assignment => "assignment",
+    NoToken => "null",
+  }
+}
+
+let tokenSpec = [>
+  (Result.unwrap(Regex.make("^\s+")), NoToken),
+  (Result.unwrap(Regex.make("^\"(.*?)\"")), TString),
+  (Result.unwrap(Regex.make("^\\blet\\b")), Variable),
+  (Result.unwrap(Regex.make("^\\bprint\\b")), Print),
+  (Result.unwrap(Regex.make("^\d+")), Number),
+  (Result.unwrap(Regex.make("^[a-z]+")), Identifier),
+  (Result.unwrap(Regex.make("^\+")), Addition),
+  (Result.unwrap(Regex.make("^\-")), Subtraction),
+  (Result.unwrap(Regex.make("^\*")), Multiplication),
+  (Result.unwrap(Regex.make("^\/")), Division),
+  (Result.unwrap(Regex.make("^\^")), Exponentiation),
+  (Result.unwrap(Regex.make("^\(")), Parens_Left),
+  (Result.unwrap(Regex.make("^\)")), Parens_Right),
+  (Result.unwrap(Regex.make("^;")), Semicolon),
+  (Result.unwrap(Regex.make("^\=")), Assignment),
+]
+
+let mut input = ""
+let mut cursor = 0
+
+provide let init = source => {
+  input = source
+  cursor = 0
+}
+
+provide let hasMoreTokens = () => {
+  cursor < String.length(input)
+}
+
+let matchToken = (regex, inputSlice) => {
+  let matched = Regex.find(regex, inputSlice)
+  match (matched) {
+    None => {
+      None
+    },
+    Some(m) => {
+      match (m.group(0)) {
+        Some(mt) => {
+          cursor += String.length(mt)
+          Some(mt)
+        },
+        None => None,
+      }
+    },
+  }
+}
+
+provide let rec getNextToken = () => {
+  if (!hasMoreTokens()) {
+    return None
+  }
+
+  let inputSlice = String.slice(cursor, input)
+
+  for (let mut i = 0; i < Array.length(tokenSpec); i += 1) {
+    let (regex, t) = tokenSpec[i]
+
+    let tokenValue = matchToken(regex, inputSlice)
+    if (Option.isNone(tokenValue)) {
+      continue
+    }
+
+    if (t == NoToken) {
+      return getNextToken()
+    }
+
+    return match (tokenValue) {
+      None => throw SyntaxError("NYI"),
+      Some(str) => Some((t, str)),
+    }
+  }
+
+  return None
+}
+
+provide let printAllTokens = () => {
+  print("All tokens")
+}

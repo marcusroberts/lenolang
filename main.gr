@@ -1,0 +1,11 @@
+module Main
+
+from "./tokenizer.gr" include Tokenizer
+from "./parser.gr" include Parser
+
+// let res = Parser.parse("let x = 10; print(x); let y = x + 10;")
+
+let res = Parser.parse(
+  "let name = \"Marcus\"; let surname = \"Roberts\"; let fullname = name + surname;"
+)
+print(res)

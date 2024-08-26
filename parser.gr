@@ -1,0 +1,223 @@
+module Parser
+
+from "./tokenizer.gr" include Tokenizer
+from "option" include Option
+from "number" include Number
+from "list" include List
+from "string" include String
+
+provide exception SyntaxError(String)
+
+let opPrec = (tokType: Tokenizer.TokenType) => {
+  match (tokType) {
+    Multiplication => 3,
+    Division => 3,
+    Addition => 2,
+    Subtraction => 2,
+    _ => 0,
+  }
+}
+
+let getPrecedence = (tokenOpt: Option<(Tokenizer.TokenType, String)>) => {
+  match (tokenOpt) {
+    None => 0,
+    Some((t, _)) => opPrec(t),
+  }
+}
+
+provide enum rec Expression {
+  PNull,
+  PNumber(Number),
+  PString(String),
+  PIdent(String),
+  PVariable(String),
+  BinaryExpression{ operator: String, left: Expression, right: Expression },
+  UnaryExpression(Expression),
+  PApp{ operator: String, value: Expression },
+}
+
+provide enum Statement {
+  NullStatement,
+  ExpressionStatement(Expression),
+  PrintStatement(Expression),
+  PAssign(String, Expression),
+}
+
+provide record Program {
+  statements: List<Statement>,
+}
+
+let mut input = ""
+let mut lookahead = None
+
+let eat = tokenType => {
+  let token = lookahead
+  match (token) {
+    None => {
+      throw SyntaxError(
+        "Unexpected end of input, expected " ++
+          Tokenizer.tokenTypeToString(tokenType),
+      )
+    },
+    Some((t, str)) => {
+      if (t != tokenType) {
+        print(
+          "Unexpected token, expected " ++
+            Tokenizer.tokenTypeToString(tokenType)
+        )
+        print(lookahead)
+        print(t)
+        print(tokenType)
+        throw SyntaxError(
+          "Unexpected token, expected to find " ++
+            Tokenizer.tokenTypeToString(tokenType),
+        )
+      }
+      // Advance to the next token
+      lookahead = Tokenizer.getNextToken()
+      return (t, str)
+    },
+  }
+}
+
+let rec parenthesizedExpression = () => {
+  eat(Tokenizer.Parens_Left)
+  let expression1 = expression(0)
+
+  eat(Tokenizer.Parens_Right)
+
+  expression1
+}
+and function = (id, value) => {
+  PApp{ operator: id, value }
+}
+and functionExpression = () => {
+  let (t, val) = eat(Tokenizer.Identifier)
+  let id = val
+  let expression = parenthesizedExpression()
+  function(id, expression)
+}
+and prefix = () => {
+  match (lookahead) {
+    Some((lat, _)) => match (lat) {
+      Parens_Left => return parenthesizedExpression(),
+      Identifier => return variableOrFunctionExpression(),
+      TString => {
+        let (_t, str) = eat(Tokenizer.TString)
+        // trim off the quotes around the string
+
+        let cleanString = String.replaceAll("\"", "", str)
+        return PString(cleanString)
+      },
+      Number => {
+        let (t, str) = eat(Tokenizer.Number)
+        let res = Number.parseInt(str, 10)
+        return match (res) {
+          Ok(num) => return PNumber(num),
+          Err(_) => throw SyntaxError("Number wasn't a number"),
+        }
+      },
+      _ => void,
+    },
+    _ => void,
+  }
+
+  throw SyntaxError("Unexpected prefix value")
+}
+and infix = (left: Expression, operatorType) => {
+  let (ttype, _) = eat(operatorType)
+  let newPrec = opPrec(ttype)
+
+  match (ttype) {
+    Addition =>
+      BinaryExpression{ operator: "+", left, right: expression(newPrec) },
+    Subtraction =>
+      BinaryExpression{ operator: "-", left, right: expression(newPrec) },
+    Multiplication =>
+      BinaryExpression{ operator: "*", left, right: expression(newPrec) },
+    Division =>
+      BinaryExpression{ operator: "/", left, right: expression(newPrec) },
+    _ => PNull,
+  }
+}
+and expression = prec => {
+  let mut left = prefix()
+
+  while (prec < getPrecedence(lookahead)) {
+    match (lookahead) {
+      None => void,
+      Some((t, _)) => left = infix(left, t),
+    }
+  }
+
+  left
+}
+and variable = id => {
+  PVariable(id)
+}
+and variableOrFunctionExpression = () => {
+  let (_, id) = eat(Identifier)
+  match (lookahead) {
+    None => PNull,
+    Some((t, _)) => match (t) {
+      Parens_Left => functionExpression(),
+      _ => variable(id),
+    },
+  }
+}
+and expressionStatement = () => {
+  let expr = expression(0)
+  let _ = eat(Semicolon)
+  expr
+}
+and printStatement = () => {
+  let _ = eat(Print)
+  let expr = parenthesizedExpression()
+  let _ = eat(Semicolon)
+  PrintStatement(expr)
+}
+and variableStatement = () => {
+  let _ = eat(Variable)
+  let (t, name) = eat(Identifier)
+  let _ = eat(Assignment)
+  let value = expression(0)
+  let _ = eat(Semicolon)
+  PAssign(name, value)
+}
+and statement = () => {
+  match (lookahead) {
+    None => NullStatement,
+    Some((t, _)) => {
+      match (t) {
+        Print => printStatement(),
+        Variable => variableStatement(),
+        _ => ExpressionStatement(expressionStatement()),
+      }
+    },
+  }
+}
+and statementList = () => {
+  let mut stmtList = [statement()]
+
+  while (Option.isSome(lookahead)) {
+    stmtList = List.append(stmtList, [statement()])
+  }
+
+  return stmtList
+}
+and program = () => {
+  let result: Program = {
+    { statements: statementList(), }
+  }
+  result
+}
+
+provide let parse = (source: String) => {
+  input = source
+
+  Tokenizer.init(source)
+
+  lookahead = Tokenizer.getNextToken()
+
+  program()
+}

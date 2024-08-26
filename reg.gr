@@ -1,0 +1,12 @@
+module RegTest
+
+from "regex" include Regex
+from "result" include Result
+
+let varmatch = Result.unwrap(Regex.make("^\\bvar\\b"))
+
+print(varmatch)
+
+let res = Regex.find(varmatch, "var x = 10")
+
+print(res)
