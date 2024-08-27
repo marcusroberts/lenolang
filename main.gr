@@ -7,7 +7,7 @@ from "./analyse.gr" include Analyze
 // let res = Parser.parse("let x = 10; print(x); let y = x + 10;")
 
 let ast = Parser.parse(
-  "20; let name = \"Marcus\"; let surname = \"Roberts\"; let fullname = name + surname;"
+  "20 + 30 * 10; let name = \"Marcus\"; let surname = \"Roberts\"; let fullname = name + surname;"
 )
 print(ast)
 

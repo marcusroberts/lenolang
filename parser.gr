@@ -29,7 +29,6 @@ provide enum rec Expression {
   PNull,
   PNumber(Number),
   PString(String),
-  PIdent(String),
   PVariable(String),
   BinaryExpression{ operator: String, left: Expression, right: Expression },
   UnaryExpression(Expression),

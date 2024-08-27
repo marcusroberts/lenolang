@@ -2,6 +2,9 @@ module Analyze
 
 from "./parser.gr" include Parser
 from "list" include List
+from "map" include Map
+
+provide exception TypeError(String)
 
 provide enum TType {
   TVoid,
@@ -31,10 +34,33 @@ provide record TProgram {
   typed_statements: List<TStatement>,
 }
 
-let process_expression = (expression: Parser.Expression) => {
+let rec process_expression = (expression: Parser.Expression, symbols) => {
   let expression_type = match (expression) {
     PNumber(_) => TInt,
     PString(_) => TString,
+    BinaryExpression{ operator, left, right } => {
+      let left_expr: TExpression = process_expression(left, symbols)
+      let right_expr: TExpression = process_expression(right, symbols)
+
+      if (left_expr.ttype != right_expr.ttype) {
+        throw TypeError(
+          "This expression has type " ++
+            typeAsString(right_expr.ttype) ++
+            " but an expression was expected of type " ++
+            typeAsString(left_expr.ttype),
+        )
+      }
+
+      // return left or right, they are the same
+
+      left_expr.ttype
+    },
+    PVariable(name) => {
+      match (Map.get(name, symbols)) {
+        None => throw TypeError("Accessing an undeclared variable"),
+        Some(v) => v,
+      }
+    },
     _ => TVoid,
   }
 
@@ -42,13 +68,16 @@ let process_expression = (expression: Parser.Expression) => {
   return typed
 }
 
-let process_statement = (statement: Parser.Statement) => {
+let process_statement = (statement: Parser.Statement, symbols) => {
   let typed: TStatement = match (statement) {
     NullStatement => { statement, ttype: TVoid },
     PrintStatement(_) => { statement, ttype: TVoid },
-    PAssign(_, _) => { statement, ttype: TVoid },
+    PAssign(name, expression) => {
+      Map.set(name, process_expression(expression, symbols).ttype, symbols)
+      { statement, ttype: TVoid }
+    },
     ExpressionStatement(expression) => {
-      let typed_expression = process_expression(expression)
+      let typed_expression = process_expression(expression, symbols)
       let typed_statement: TStatement = {
         statement,
         ttype: typed_expression.ttype,
@@ -60,14 +89,16 @@ let process_statement = (statement: Parser.Statement) => {
   return typed
 }
 
-let process_statements = (statements: List<Parser.Statement>) => {
-  let types_statements = List.map(stmt => process_statement(stmt), statements)
+let process_statements = (statements: List<Parser.Statement>, symbols) => {
+  let types_statements = List.map(
+    stmt => process_statement(stmt, symbols),
+    statements
+  )
   return types_statements
 }
 
-let assign_types = (ast: Parser.Program) => {
-  // let result: TProgram = { statements: [], }
-  process_statements(ast.statements)
+let assign_types = (ast: Parser.Program, symbols) => {
+  process_statements(ast.statements, symbols)
 }
 
 provide let debug_statement = (stmt: TStatement) => {
@@ -76,7 +107,17 @@ provide let debug_statement = (stmt: TStatement) => {
 
 provide let analyse = (ast: Parser.Program) => {
   print("Analyzing program")
-  let types_tree = assign_types(ast)
+  let symbols = Map.make()
+  let types_tree = assign_types(ast, symbols)
 
   List.forEach(stmt => debug_statement(stmt), types_tree)
+
+  print("Symbols")
+
+  List.forEach(key => {
+    match (Map.get(key, symbols)) {
+      None => void,
+      Some(ttype) => print(key ++ " " ++ typeAsString(ttype)),
+    }
+  }, Map.keys(symbols))
 }
