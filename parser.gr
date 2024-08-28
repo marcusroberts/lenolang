@@ -27,27 +27,33 @@ let getPrecedence = (
   }
 }
 
-provide enum rec Expression {
-  PNull,
-  PNumber(Number),
-  PString(String),
-  PVariable(String),
-  PFunction{ arg: String, body: Expression },
-  BinaryExpression{ operator: String, left: Expression, right: Expression },
-  UnaryExpression(Expression),
-  PApp{ operator: String, value: Expression },
-}
+// provide record rec PExpression {
+//   expression: Expression,
+//   loc: Tokenizer.Location,
+// }
+// and
 
-provide record PExpression {
-  expression: Expression,
-  location: Tokenizer.Location,
+provide enum rec PExpression {
+  PNull{ loc: Tokenizer.Location, },
+  PNumber{ number: Number, loc: Tokenizer.Location },
+  PString{ string: String, loc: Tokenizer.Location },
+  PVariable{ name: String, loc: Tokenizer.Location },
+  PFunction{ arg: String, body: PExpression, loc: Tokenizer.Location },
+  BinaryExpression{
+    operator: String,
+    left: PExpression,
+    right: PExpression,
+    loc: Tokenizer.Location,
+  },
+  //UnaryExpression{ expression: PExpression, loc: Tokenizer.Location },
+  PApp{ operator: String, value: PExpression, loc: Tokenizer.Location },
 }
 
 provide enum Statement {
   NullStatement,
-  ExpressionStatement(Expression),
-  PrintStatement(Expression),
-  PAssign(String, Expression),
+  ExpressionStatement(PExpression),
+  PrintStatement(PExpression),
+  PAssign(String, PExpression),
 }
 
 provide record PStatement {
@@ -95,15 +101,14 @@ let rec parenthesizedExpression = () => {
   eat(Tokenizer.Parens_Left)
   let expression1 = expression(0)
   eat(Tokenizer.Parens_Right)
-
-  expression1
+  expression1 // add the parens to the locations
 }
-and functionDeclaration = arg => {
+and functionDeclaration = (arg, location) => {
   eat(Tokenizer.FatArrow)
   match (arg) {
-    PVariable(name) => {
+    PVariable{ name, loc } => {
       let body = expression(0)
-      PFunction{ arg: name, body }
+      PFunction{ arg: name, body, loc: location } // FIX location
     },
     _ => {
       throw SyntaxError("Function argument isn't an identifier")
@@ -119,14 +124,14 @@ and parenthesizedExpressionOrFunctionDeclaration = () => {
     None => expression1,
     Some(((ttype, _), location)) => match (ttype) {
       FatArrow => {
-        functionDeclaration(expression1)
+        functionDeclaration(expression1, location)
       },
       _ => expression1,
     },
   }
 }
-and function = (id, value) => {
-  PApp{ operator: id, value }
+and function = (id, value: PExpression) => {
+  PApp{ operator: id, value, loc: Tokenizer.emptyLocation() } // FIX
 }
 and functionExpression = () => {
   let (t, val) = eat(Tokenizer.Identifier)
@@ -144,13 +149,13 @@ and prefix = () => {
         // trim off the quotes around the string
 
         let cleanString = String.replaceAll("\"", "", str)
-        return PString(cleanString)
+        return PString{ string: cleanString, loc: location }
       },
       Number => {
         let (t, str) = eat(Tokenizer.Number)
         let res = Number.parseInt(str, 10)
         return match (res) {
-          Ok(num) => return PNumber(num),
+          Ok(num) => return PNumber{ number: num, loc: location },
           Err(_) => throw SyntaxError("Number wasn't a number"),
         }
       },
@@ -161,20 +166,40 @@ and prefix = () => {
 
   throw SyntaxError("Unexpected prefix value")
 }
-and infix = (left: Expression, operatorType) => {
+and infix = (left: PExpression, operatorType) => {
   let (ttype, _) = eat(operatorType)
   let newPrec = opPrec(ttype)
 
   match (ttype) {
     Addition =>
-      BinaryExpression{ operator: "+", left, right: expression(newPrec) },
+      BinaryExpression{
+        operator: "+",
+        left,
+        right: expression(newPrec),
+        loc: Tokenizer.emptyLocation()
+      },
     Subtraction =>
-      BinaryExpression{ operator: "-", left, right: expression(newPrec) },
+      BinaryExpression{
+        operator: "-",
+        left,
+        right: expression(newPrec),
+        loc: Tokenizer.emptyLocation()
+      },
     Multiplication =>
-      BinaryExpression{ operator: "*", left, right: expression(newPrec) },
+      BinaryExpression{
+        operator: "*",
+        left,
+        right: expression(newPrec),
+        loc: Tokenizer.emptyLocation()
+      },
     Division =>
-      BinaryExpression{ operator: "/", left, right: expression(newPrec) },
-    _ => PNull,
+      BinaryExpression{
+        operator: "/",
+        left,
+        right: expression(newPrec),
+        loc: Tokenizer.emptyLocation()
+      },
+    _ => PNull{ loc: Tokenizer.emptyLocation() },
   }
 }
 and expression = prec => {
@@ -189,16 +214,16 @@ and expression = prec => {
 
   left
 }
-and variable = id => {
-  PVariable(id)
+and variable = (id, location) => {
+  PVariable{ name: id, loc: location }
 }
 and variableOrFunctionExpression = () => {
   let (_, id) = eat(Identifier)
   match (lookahead) {
-    None => PNull,
+    None => PNull{ loc: Tokenizer.emptyLocation() },
     Some(((t, _), location)) => match (t) {
       Parens_Left => functionExpression(),
-      _ => variable(id),
+      _ => variable(id, location),
     },
   }
 }

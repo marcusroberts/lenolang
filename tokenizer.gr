@@ -144,10 +144,6 @@ provide let rec getNextToken = () => {
     return match (tokenValue) {
       None => throw SyntaxError("NYI"),
       Some(str) => {
-        // print("str " ++ str)
-        // print("line " ++ toString(line))
-        // print("pos" ++ toString(pos))
-
         let cursorPos = pos
         pos += String.length(str)
         Some(

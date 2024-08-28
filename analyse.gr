@@ -28,7 +28,7 @@ provide record TStatement {
 }
 
 provide record TExpression {
-  expression: Parser.Expression,
+  expression: Parser.PExpression,
   ttype: TType,
 }
 
@@ -36,11 +36,11 @@ provide record TProgram {
   typed_statements: List<TStatement>,
 }
 
-let rec process_expression = (expression: Parser.Expression, symbols) => {
+let rec process_expression = (expression: Parser.PExpression, symbols) => {
   let expression_type = match (expression) {
-    PNumber(_) => TInt,
-    PString(_) => TString,
-    BinaryExpression{ operator, left, right } => {
+    PNumber{ _ } => TInt,
+    PString{ _ } => TString,
+    BinaryExpression{ operator, left, right, loc } => {
       let left_expr: TExpression = process_expression(left, symbols)
       let right_expr: TExpression = process_expression(right, symbols)
 
@@ -65,13 +65,13 @@ let rec process_expression = (expression: Parser.Expression, symbols) => {
         left_expr.ttype
       }
     },
-    PVariable(name) => {
+    PVariable{ name, loc } => {
       match (Map.get(name, symbols)) {
         None => throw TypeError("Accessing an undeclared variable"),
         Some(v) => v,
       }
     },
-    PFunction{ arg, body } => {
+    PFunction{ arg, body, loc } => {
       // This gets interesting
       // we should pass the arg in as unbound into the symbols
       // (unless it's been bound to a type in future with a : type assignment)
