@@ -25,6 +25,7 @@ provide enum TokenType {
   Parens_Left,
   Parens_Right,
   Semicolon,
+  FatArrow,
   Assignment,
   NoToken,
 }
@@ -45,6 +46,7 @@ provide let tokenTypeToString = (tokentype: TokenType) => {
     Parens_Right => ")",
     Semicolon => ";",
     Assignment => "assignment",
+    FatArrow => "=>",
     NoToken => "null",
   }
 }
@@ -56,6 +58,7 @@ let tokenSpec = [>
   (Result.unwrap(Regex.make("^\\bprint\\b")), Print),
   (Result.unwrap(Regex.make("^\d+")), Number),
   (Result.unwrap(Regex.make("^[a-z]+")), Identifier),
+  (Result.unwrap(Regex.make("^\=>")), FatArrow),
   (Result.unwrap(Regex.make("^\+")), Addition),
   (Result.unwrap(Regex.make("^\-")), Subtraction),
   (Result.unwrap(Regex.make("^\*")), Multiplication),

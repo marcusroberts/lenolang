@@ -30,6 +30,7 @@ provide enum rec Expression {
   PNumber(Number),
   PString(String),
   PVariable(String),
+  PFunction{ arg: String, body: Expression },
   BinaryExpression{ operator: String, left: Expression, right: Expression },
   UnaryExpression(Expression),
   PApp{ operator: String, value: Expression },
@@ -64,9 +65,8 @@ let eat = tokenType => {
           "Unexpected token, expected " ++
             Tokenizer.tokenTypeToString(tokenType)
         )
-        print(lookahead)
-        print(t)
-        print(tokenType)
+        print(token)
+
         throw SyntaxError(
           "Unexpected token, expected to find " ++
             Tokenizer.tokenTypeToString(tokenType),
@@ -82,10 +82,36 @@ let eat = tokenType => {
 let rec parenthesizedExpression = () => {
   eat(Tokenizer.Parens_Left)
   let expression1 = expression(0)
-
   eat(Tokenizer.Parens_Right)
 
   expression1
+}
+and functionDeclaration = arg => {
+  eat(Tokenizer.FatArrow)
+  match (arg) {
+    PVariable(name) => {
+      let body = expression(0)
+      PFunction{ arg: name, body }
+    },
+    _ => {
+      throw SyntaxError("Function argument isn't an identifier")
+    },
+  }
+}
+and parenthesizedExpressionOrFunctionDeclaration = () => {
+  eat(Tokenizer.Parens_Left)
+  let expression1 = expression(0)
+  eat(Tokenizer.Parens_Right)
+
+  match (lookahead) {
+    None => expression1,
+    Some((ttype, _)) => match (ttype) {
+      FatArrow => {
+        functionDeclaration(expression1)
+      },
+      _ => expression1,
+    },
+  }
 }
 and function = (id, value) => {
   PApp{ operator: id, value }
@@ -99,7 +125,7 @@ and functionExpression = () => {
 and prefix = () => {
   match (lookahead) {
     Some((lat, _)) => match (lat) {
-      Parens_Left => return parenthesizedExpression(),
+      Parens_Left => return parenthesizedExpressionOrFunctionDeclaration(),
       Identifier => return variableOrFunctionExpression(),
       TString => {
         let (_t, str) = eat(Tokenizer.TString)
@@ -180,6 +206,7 @@ and variableStatement = () => {
   let (t, name) = eat(Identifier)
   let _ = eat(Assignment)
   let value = expression(0)
+
   let _ = eat(Semicolon)
   PAssign(name, value)
 }
