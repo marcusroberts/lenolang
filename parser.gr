@@ -18,10 +18,12 @@ let opPrec = (tokType: Tokenizer.TokenType) => {
   }
 }
 
-let getPrecedence = (tokenOpt: Option<(Tokenizer.TokenType, String)>) => {
+let getPrecedence = (
+  tokenOpt: Option<((Tokenizer.TokenType, String), Tokenizer.Location)>,
+) => {
   match (tokenOpt) {
     None => 0,
-    Some((t, _)) => opPrec(t),
+    Some(((t, _), location)) => opPrec(t),
   }
 }
 
@@ -36,6 +38,11 @@ provide enum rec Expression {
   PApp{ operator: String, value: Expression },
 }
 
+provide record PExpression {
+  expression: Expression,
+  location: Tokenizer.Location,
+}
+
 provide enum Statement {
   NullStatement,
   ExpressionStatement(Expression),
@@ -43,8 +50,13 @@ provide enum Statement {
   PAssign(String, Expression),
 }
 
+provide record PStatement {
+  statement: Statement,
+  location: Tokenizer.Location,
+}
+
 provide record Program {
-  statements: List<Statement>,
+  statements: List<PStatement>,
 }
 
 let mut input = ""
@@ -59,7 +71,7 @@ let eat = tokenType => {
           Tokenizer.tokenTypeToString(tokenType),
       )
     },
-    Some((t, str)) => {
+    Some(((t, str), location)) => {
       if (t != tokenType) {
         print(
           "Unexpected token, expected " ++
@@ -105,7 +117,7 @@ and parenthesizedExpressionOrFunctionDeclaration = () => {
 
   match (lookahead) {
     None => expression1,
-    Some((ttype, _)) => match (ttype) {
+    Some(((ttype, _), location)) => match (ttype) {
       FatArrow => {
         functionDeclaration(expression1)
       },
@@ -124,7 +136,7 @@ and functionExpression = () => {
 }
 and prefix = () => {
   match (lookahead) {
-    Some((lat, _)) => match (lat) {
+    Some(((lat, _), location)) => match (lat) {
       Parens_Left => return parenthesizedExpressionOrFunctionDeclaration(),
       Identifier => return variableOrFunctionExpression(),
       TString => {
@@ -171,7 +183,7 @@ and expression = prec => {
   while (prec < getPrecedence(lookahead)) {
     match (lookahead) {
       None => void,
-      Some((t, _)) => left = infix(left, t),
+      Some(((t, _), location)) => left = infix(left, t),
     }
   }
 
@@ -184,40 +196,63 @@ and variableOrFunctionExpression = () => {
   let (_, id) = eat(Identifier)
   match (lookahead) {
     None => PNull,
-    Some((t, _)) => match (t) {
+    Some(((t, _), location)) => match (t) {
       Parens_Left => functionExpression(),
       _ => variable(id),
     },
   }
 }
-and expressionStatement = () => {
+and expressionStatement = startLocation => {
   let expr = expression(0)
   let _ = eat(Semicolon)
   expr
 }
-and printStatement = () => {
+and printStatement = startLocation => {
   let _ = eat(Print)
   let expr = parenthesizedExpression()
   let _ = eat(Semicolon)
-  PrintStatement(expr)
+
+  let locatedStatement: PStatement = {
+    statement: PrintStatement(expr),
+    location: startLocation,
+  }
+  locatedStatement
 }
-and variableStatement = () => {
+and variableStatement = startLocation => {
   let _ = eat(Variable)
   let (t, name) = eat(Identifier)
   let _ = eat(Assignment)
   let value = expression(0)
 
   let _ = eat(Semicolon)
-  PAssign(name, value)
+  let locatedStatement: PStatement = {
+    statement: PAssign(name, value),
+    location: startLocation,
+  }
+  locatedStatement
 }
 and statement = () => {
   match (lookahead) {
-    None => NullStatement,
-    Some((t, _)) => {
+    None => {
+      let locatedStatement: PStatement = {
+        statement: NullStatement,
+        location: Tokenizer.emptyLocation(),
+      }
+      locatedStatement
+    },
+    Some(((t, _), location)) => {
+      print("line starting location")
+      print(location)
       match (t) {
-        Print => printStatement(),
-        Variable => variableStatement(),
-        _ => ExpressionStatement(expressionStatement()),
+        Print => printStatement(location),
+        Variable => variableStatement(location),
+        _ => {
+          let locatedStatement: PStatement = {
+            statement: ExpressionStatement(expressionStatement(location)),
+            location,
+          }
+          locatedStatement
+        },
       }
     },
   }

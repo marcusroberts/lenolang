@@ -98,18 +98,18 @@ let rec process_expression = (expression: Parser.Expression, symbols) => {
   return typed
 }
 
-let process_statement = (statement: Parser.Statement, symbols) => {
-  let typed: TStatement = match (statement) {
-    NullStatement => { statement, ttype: TVoid },
-    PrintStatement(_) => { statement, ttype: TVoid },
+let process_statement = (statement: Parser.PStatement, symbols) => {
+  let typed: TStatement = match (statement.statement) {
+    NullStatement => { statement: statement.statement, ttype: TVoid },
+    PrintStatement(_) => { statement: statement.statement, ttype: TVoid },
     PAssign(name, expression) => {
       Map.set(name, process_expression(expression, symbols).ttype, symbols)
-      { statement, ttype: TVoid }
+      { statement: statement.statement, ttype: TVoid }
     },
     ExpressionStatement(expression) => {
       let typed_expression = process_expression(expression, symbols)
       let typed_statement: TStatement = {
-        statement,
+        statement: statement.statement,
         ttype: typed_expression.ttype,
       }
       typed_statement
@@ -119,7 +119,7 @@ let process_statement = (statement: Parser.Statement, symbols) => {
   return typed
 }
 
-let process_statements = (statements: List<Parser.Statement>, symbols) => {
+let process_statements = (statements: List<Parser.PStatement>, symbols) => {
   let types_statements = List.map(
     stmt => process_statement(stmt, symbols),
     statements

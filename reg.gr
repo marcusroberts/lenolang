@@ -5,8 +5,10 @@ from "result" include Result
 
 let varmatch = Result.unwrap(Regex.make("^\\bvar\\b"))
 
+let varmatch = Result.unwrap(Regex.make("\n"))
+
 print(varmatch)
 
-let res = Regex.find(varmatch, "var x = 10")
+let res = Regex.find(varmatch, "var x = 10" ++ "\n" ++ "100")
 
 print(res)

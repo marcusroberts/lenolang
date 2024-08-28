@@ -11,6 +11,13 @@ from "array" include Array
 
 provide exception SyntaxError(String)
 
+provide record Location {
+  startLine: Number,
+  startChar: Number,
+  endLine: Number,
+  endChar: Number,
+}
+
 provide enum TokenType {
   Variable,
   TString,
@@ -28,6 +35,7 @@ provide enum TokenType {
   FatArrow,
   Assignment,
   NoToken,
+  NewLine,
 }
 
 provide let tokenTypeToString = (tokentype: TokenType) => {
@@ -48,10 +56,12 @@ provide let tokenTypeToString = (tokentype: TokenType) => {
     Assignment => "assignment",
     FatArrow => "=>",
     NoToken => "null",
+    NewLine => "",
   }
 }
 
 let tokenSpec = [>
+  (Result.unwrap(Regex.make("^\n")), NewLine),
   (Result.unwrap(Regex.make("^\s+")), NoToken),
   (Result.unwrap(Regex.make("^\"(.*?)\"")), TString),
   (Result.unwrap(Regex.make("^\\blet\\b")), Variable),
@@ -70,8 +80,14 @@ let tokenSpec = [>
   (Result.unwrap(Regex.make("^\=")), Assignment),
 ]
 
+provide let emptyLocation = () =>
+  { startLine: -1, startChar: -1, endLine: -1, endChar: -1 }
+
 let mut input = ""
 let mut cursor = 0
+
+let mut line = 0
+let mut pos = 0
 
 provide let init = source => {
   input = source
@@ -115,13 +131,37 @@ provide let rec getNextToken = () => {
       continue
     }
 
-    if (t == NoToken) {
+    if (t == NewLine) {
+      line += 1
+      pos = 0
+    }
+    if (t == NoToken) pos += 1
+
+    if (t == NoToken || t == NewLine) {
       return getNextToken()
     }
 
     return match (tokenValue) {
       None => throw SyntaxError("NYI"),
-      Some(str) => Some((t, str)),
+      Some(str) => {
+        // print("str " ++ str)
+        // print("line " ++ toString(line))
+        // print("pos" ++ toString(pos))
+
+        let cursorPos = pos
+        pos += String.length(str)
+        Some(
+          (
+            (t, str),
+            {
+              startLine: line,
+              startChar: cursorPos,
+              endLine: line,
+              endChar: pos,
+            },
+          ),
+        )
+      },
     }
   }
 
