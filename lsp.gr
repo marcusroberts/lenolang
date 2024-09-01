@@ -65,17 +65,31 @@ module LensesExports {
   provide let getlenses = () => {
     // (fail "unimplemented"): List<Lens>
 
-    let r: Range = {
-      start: { line: 0ul, character: 0ul },
-      end: { line: 0ul, character: 0ul },
+    let lens1 = {
+      range: {
+        start: { line: 0ul, character: 0ul },
+        end: { line: 0ul, character: 0ul },
+      },
+      command: { title: "Int", command: "" },
     }
 
-    let lens = {
-      range: r,
-      command: { title: "This is a Grain lens", command: "" },
+    let lens2 = {
+      range: {
+        start: { line: 1ul, character: 0ul },
+        end: { line: 1ul, character: 0ul },
+      },
+      command: { title: "Void", command: "" },
     }
 
-    let lenses: List<Lens> = [lens]
+    let lens3 = {
+      range: {
+        start: { line: 2ul, character: 0ul },
+        end: { line: 2ul, character: 0ul },
+      },
+      command: { title: "Int", command: "" },
+    }
+
+    let lenses: List<Lens> = [lens1, lens2, lens3]
     return lenses
   }
 }
