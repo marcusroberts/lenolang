@@ -33,6 +33,7 @@ provide enum rec PExpression {
   PString{ string: String, loc: Tokenizer.Location },
   PVariable{ name: String, loc: Tokenizer.Location },
   PFunction{ arg: String, body: PExpression, loc: Tokenizer.Location },
+  PBlock{ statements: List<PStatement>, loc: Tokenizer.Location },
   BinaryExpression{
     operator: String,
     left: PExpression,
@@ -42,15 +43,13 @@ provide enum rec PExpression {
   //UnaryExpression{ expression: PExpression, loc: Tokenizer.Location },
   PApp{ operator: String, value: PExpression, loc: Tokenizer.Location },
 }
-
-provide enum Statement {
+and provide enum Statement {
   NullStatement,
   ExpressionStatement(PExpression),
   PrintStatement(PExpression),
   PAssign(String, PExpression),
 }
-
-provide record PStatement {
+and provide record PStatement {
   statement: Statement,
   location: Tokenizer.Location,
 }
@@ -102,6 +101,10 @@ let getExpressionLocation = (expression: PExpression) => {
     PApp{ loc, _ } => loc,
   }
 }
+let isBlock = e => match (e) {
+  PBlock{ _ } => true,
+  _ => false,
+}
 
 let rec parenthesizedExpression = () => {
   eat(Tokenizer.Parens_Left)
@@ -120,6 +123,23 @@ and functionDeclaration = (arg, location) => {
       throw SyntaxError("Function argument isn't an identifier")
     },
   }
+}
+and blockStatement = () => {
+  eat(Tokenizer.Bracket_Left)
+
+  let mut stmtList = [statement()]
+
+  while (Option.isSome(lookahead)) {
+    let ((ttype, _), _) = Option.unwrap(lookahead)
+
+    if (ttype == Tokenizer.Bracket_Right) break
+
+    stmtList = List.append(stmtList, [statement()])
+  }
+
+  eat(Tokenizer.Bracket_Right)
+
+  PBlock{ statements: stmtList, loc: Tokenizer.emptyLocation() }
 }
 and parenthesizedExpressionOrFunctionDeclaration = () => {
   eat(Tokenizer.Parens_Left)
@@ -146,8 +166,11 @@ and functionExpression = () => {
   function(id, expression)
 }
 and prefix = () => {
+  print("prefix")
+  print(lookahead)
   match (lookahead) {
     Some(((lat, _), location)) => match (lat) {
+      Bracket_Left => return blockStatement(),
       Parens_Left => return parenthesizedExpressionOrFunctionDeclaration(),
       Identifier => return variableOrFunctionExpression(),
       TString => {
@@ -240,7 +263,25 @@ and variableOrFunctionExpression = () => {
 }
 and expressionStatement = startLocation => {
   let expr = expression(0)
-  let _ = eat(Semicolon)
+
+  // semicolon should be optional after a blockStatement
+
+  match (expr) {
+    PBlock{ _ } => {
+      match (lookahead) {
+        Some(((t, _), location)) => match (t) {
+          Tokenizer.Semicolon => {
+            let _ = eat(Semicolon)
+          },
+          _ => void,
+        },
+        None => void,
+      }
+    },
+    _ => {
+      let _ = eat(Semicolon)
+    },
+  }
   expr
 }
 and printStatement = startLocation => {
@@ -260,7 +301,33 @@ and variableStatement = (startLocation: Tokenizer.Location) => {
   let _ = eat(Assignment)
   let value = expression(0)
 
-  let _ = eat(Semicolon)
+  //let _ = eat(Semicolon)
+
+  match (value) {
+    PBlock{ _ } => match (lookahead) {
+      Some(((t, _), location)) => match (t) {
+        Tokenizer.Semicolon => {
+          let _ = eat(Semicolon)
+        },
+        _ => void,
+      },
+      None => void,
+    },
+    PFunction{ body, _ } when isBlock(body) => {
+      match (lookahead) {
+        Some(((t, _), location)) => match (t) {
+          Tokenizer.Semicolon => {
+            let _ = eat(Semicolon)
+          },
+          _ => void,
+        },
+        None => void,
+      }
+    },
+    _ => {
+      let _ = eat(Semicolon)
+    },
+  }
 
   let exprLoc = getExpressionLocation(value)
 
