@@ -146,17 +146,12 @@ provide let rec getNextToken = () => {
       Some(str) => {
         let cursorPos = pos
         pos += String.length(str)
-        Some(
-          (
-            (t, str),
-            {
-              startLine: line,
-              startChar: cursorPos,
-              endLine: line,
-              endChar: pos,
-            },
-          ),
-        )
+        Some(((t, str), {
+          startLine: line,
+          startChar: cursorPos,
+          endLine: line,
+          endChar: pos - 1, // one char wide starts and finishes on same pos
+        }))
       },
     }
   }

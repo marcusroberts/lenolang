@@ -1,0 +1,32 @@
+package leno:lsp;
+
+interface lens-types {
+  record position {
+    line: u32,
+    character:u32
+  }
+  record range {
+    start: position,
+    end:position
+  }
+  record command {
+    title: string,
+    command:string
+  }
+
+  record lens {
+    range: range,
+    command:command
+  }
+}
+
+interface lenses {
+  use lens-types.{lens};
+  getlenses: func() -> list<lens>;
+}
+
+world lsp {
+  export lenses;
+}
+
+

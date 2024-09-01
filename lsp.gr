@@ -1,0 +1,160 @@
+module Lsp
+
+from "runtime/dataStructures" include DataStructures
+from "runtime/unsafe/wasmi32" include WasmI32
+from "runtime/unsafe/wasmi64" include WasmI64
+from "runtime/unsafe/wasmf32" include WasmF32
+from "runtime/unsafe/wasmf64" include WasmF64
+from "runtime/unsafe/memory" include Memory
+from "int32" include Int32
+from "int64" include Int64
+from "char" include Char
+from "list" include List
+
+from "UInt32" include Uint32
+
+@unsafe
+let _RET_AREA = Memory.malloc(8n)
+
+@unsafe
+provide let cabi_realloc = (
+  originalPtr: WasmI32,
+  originalSize: WasmI32,
+  alignment: WasmI32,
+  newSize: WasmI32,
+) => {
+  if (WasmI32.eqz(originalPtr)) {
+    Memory.malloc(newSize)
+  } else {
+    let newPtr = Memory.malloc(newSize)
+    let amt = if (WasmI32.(<)(originalSize, newSize)) originalSize else newSize
+    Memory.copy(newPtr, originalPtr, amt)
+    Memory.free(originalPtr)
+    newPtr
+  }
+}
+
+provide record Resource<a> {
+  mut handle: Int32,
+  rep: a,
+}
+
+provide record Position {
+  line: Uint32,
+  character: Uint32,
+}
+provide record Range {
+  start: Position,
+  end: Position,
+}
+provide record Command {
+  title: String,
+  command: String,
+}
+provide record Lens {
+  range: Range,
+  command: Command,
+}
+
+// provide module LensTypes {
+// }
+
+// Export functions from leno:lsp/lenses
+
+module LensesExports {
+  provide let getlenses = () => {
+    // (fail "unimplemented"): List<Lens>
+
+    let r: Range = {
+      start: { line: 0ul, character: 0ul },
+      end: { line: 0ul, character: 0ul },
+    }
+
+    let lens = {
+      range: r,
+      command: { title: "This is a Grain lens", command: "" },
+    }
+
+    let lenses: List<Lens> = [lens]
+    return lenses
+  }
+}
+
+@unsafe
+@externalName("leno:lsp/lenses#getlenses")
+provide let lenoLspLensesGetlenses = () => {
+  let result = LensesExports.getlenses()
+  let vec_list_lower = result
+  let len_list_lower = WasmI32.(>>>)(
+    WasmI32.fromGrain(List.length(vec_list_lower)),
+    1n
+  )
+  let result_list_lower = Memory.malloc(WasmI32.(*)(len_list_lower, 32n))
+  let mut list = vec_list_lower
+  let mut i = 0n
+  while (true) {
+    match (list) {
+      [] => {
+        break
+      },
+      [e, ...rest] => {
+        list = rest
+        let base = WasmI32.(+)(result_list_lower, WasmI32.(*)(i, 32n))
+        i = WasmI32.(+)(i, 1n)
+        let { range: rangerecord, command: commandrecord }: Lens = e
+        let { start: startrecord0, end: endrecord0 }: Range = rangerecord
+        let { line: linerecord1, character: characterrecord1 }: Position =
+          startrecord0
+        WasmI32.store(
+          base,
+          WasmI32.load(WasmI32.fromGrain(linerecord1), 4n),
+          0n
+        )
+        WasmI32.store(
+          base,
+          WasmI32.load(WasmI32.fromGrain(characterrecord1), 4n),
+          4n
+        )
+        let { line: linerecord2, character: characterrecord2 }: Position =
+          endrecord0
+        WasmI32.store(
+          base,
+          WasmI32.load(WasmI32.fromGrain(linerecord2), 4n),
+          8n
+        )
+        WasmI32.store(
+          base,
+          WasmI32.load(WasmI32.fromGrain(characterrecord2), 4n),
+          12n
+        )
+        let { title: titlerecord3, command: commandrecord3 }: Command =
+          commandrecord
+        let vec_list_canon_lower = titlerecord3
+        let ptr_list_canon_lower = WasmI32.(+)(
+          WasmI32.fromGrain(vec_list_canon_lower),
+          8n
+        )
+        let len_list_canon_lower = WasmI32.load(
+          WasmI32.fromGrain(vec_list_canon_lower),
+          4n
+        )
+        WasmI32.store(base, len_list_canon_lower, 20n)
+        WasmI32.store(base, ptr_list_canon_lower, 16n)
+        let vec_list_canon_lower4 = commandrecord3
+        let ptr_list_canon_lower4 = WasmI32.(+)(
+          WasmI32.fromGrain(vec_list_canon_lower4),
+          8n
+        )
+        let len_list_canon_lower4 = WasmI32.load(
+          WasmI32.fromGrain(vec_list_canon_lower4),
+          4n
+        )
+        WasmI32.store(base, len_list_canon_lower4, 28n)
+        WasmI32.store(base, ptr_list_canon_lower4, 24n)
+      },
+    }
+  }
+  WasmI32.store(_RET_AREA, len_list_lower, 4n)
+  WasmI32.store(_RET_AREA, result_list_lower, 0n)
+  _RET_AREA
+}

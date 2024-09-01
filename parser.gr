@@ -27,12 +27,6 @@ let getPrecedence = (
   }
 }
 
-// provide record rec PExpression {
-//   expression: Expression,
-//   loc: Tokenizer.Location,
-// }
-// and
-
 provide enum rec PExpression {
   PNull{ loc: Tokenizer.Location, },
   PNumber{ number: Number, loc: Tokenizer.Location },
@@ -94,6 +88,18 @@ let eat = tokenType => {
       lookahead = Tokenizer.getNextToken()
       return (t, str)
     },
+  }
+}
+
+let getExpressionLocation = (expression: PExpression) => {
+  match (expression) {
+    PNull{ loc } => loc,
+    PNumber{ loc, _ } => loc,
+    PString{ loc, _ } => loc,
+    PVariable{ loc, _ } => loc,
+    PFunction{ loc, _ } => loc,
+    BinaryExpression{ loc, _ } => loc,
+    PApp{ loc, _ } => loc,
   }
 }
 
@@ -167,6 +173,11 @@ and prefix = () => {
   throw SyntaxError("Unexpected prefix value")
 }
 and infix = (left: PExpression, operatorType) => {
+  let operatatorLocation = match (lookahead) {
+    None => Tokenizer.emptyLocation(),
+    Some((_, location)) => location,
+  }
+
   let (ttype, _) = eat(operatorType)
   let newPrec = opPrec(ttype)
 
@@ -176,28 +187,28 @@ and infix = (left: PExpression, operatorType) => {
         operator: "+",
         left,
         right: expression(newPrec),
-        loc: Tokenizer.emptyLocation()
+        loc: operatatorLocation
       },
     Subtraction =>
       BinaryExpression{
         operator: "-",
         left,
         right: expression(newPrec),
-        loc: Tokenizer.emptyLocation()
+        loc: operatatorLocation
       },
     Multiplication =>
       BinaryExpression{
         operator: "*",
         left,
         right: expression(newPrec),
-        loc: Tokenizer.emptyLocation()
+        loc: operatatorLocation
       },
     Division =>
       BinaryExpression{
         operator: "/",
         left,
         right: expression(newPrec),
-        loc: Tokenizer.emptyLocation()
+        loc: operatatorLocation
       },
     _ => PNull{ loc: Tokenizer.emptyLocation() },
   }
@@ -243,16 +254,26 @@ and printStatement = startLocation => {
   }
   locatedStatement
 }
-and variableStatement = startLocation => {
+and variableStatement = (startLocation: Tokenizer.Location) => {
   let _ = eat(Variable)
   let (t, name) = eat(Identifier)
   let _ = eat(Assignment)
   let value = expression(0)
 
   let _ = eat(Semicolon)
+
+  let exprLoc = getExpressionLocation(value)
+
+  let statementLocation: Tokenizer.Location = {
+    startLine: startLocation.startLine,
+    startChar: startLocation.startChar,
+    endLine: exprLoc.endLine,
+    endChar: exprLoc.endChar,
+  }
+
   let locatedStatement: PStatement = {
     statement: PAssign(name, value),
-    location: startLocation,
+    location: statementLocation,
   }
   locatedStatement
 }
