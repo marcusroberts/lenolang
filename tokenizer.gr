@@ -98,6 +98,8 @@ let mut pos = 0
 provide let init = source => {
   input = source
   cursor = 0
+  line = 0
+  pos = 0
 }
 
 provide let hasMoreTokens = () => {

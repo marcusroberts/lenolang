@@ -23,7 +23,7 @@ provide let typeAsString = (ttype: TType) => {
 }
 
 provide record TStatement {
-  statement: Parser.Statement,
+  statement: Parser.PStatement,
   ttype: TType,
 }
 
@@ -100,16 +100,16 @@ let rec process_expression = (expression: Parser.PExpression, symbols) => {
 
 let process_statement = (statement: Parser.PStatement, symbols) => {
   let typed: TStatement = match (statement.statement) {
-    NullStatement => { statement: statement.statement, ttype: TVoid },
-    PrintStatement(_) => { statement: statement.statement, ttype: TVoid },
+    NullStatement => { statement, ttype: TVoid },
+    PrintStatement(_) => { statement, ttype: TVoid },
     PAssign(name, expression) => {
       Map.set(name, process_expression(expression, symbols).ttype, symbols)
-      { statement: statement.statement, ttype: TVoid }
+      { statement, ttype: TVoid }
     },
     ExpressionStatement(expression) => {
       let typed_expression = process_expression(expression, symbols)
       let typed_statement: TStatement = {
-        statement: statement.statement,
+        statement,
         ttype: typed_expression.ttype,
       }
       typed_statement
@@ -150,4 +150,6 @@ provide let analyse = (ast: Parser.Program) => {
       Some(ttype) => print(key ++ " " ++ typeAsString(ttype)),
     }
   }, Map.keys(symbols))
+
+  return types_tree
 }

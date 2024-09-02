@@ -7,9 +7,14 @@ from "runtime/unsafe/wasmf32" include WasmF32
 from "runtime/unsafe/wasmf64" include WasmF64
 from "runtime/unsafe/memory" include Memory
 from "int32" include Int32
+from "uint32" include Uint32
 from "int64" include Int64
 from "char" include Char
 from "list" include List
+
+from "./tokenizer.gr" include Tokenizer
+from "./parser.gr" include Parser
+from "./analyse.gr" include Analyze
 
 @unsafe
 let _RET_AREA = Memory.malloc(8n)
@@ -60,31 +65,54 @@ module LensesExports {
   provide let getlenses = (src: String) => {
     // (fail "unimplemented"): List<Lens>
 
-    let lens1 = {
-      range: {
-        start: { line: 0ul, character: 0ul },
-        end: { line: 0ul, character: 0ul },
-      },
-      command: { title: "Int", command: "" },
-    }
+    let ast = Parser.parse(src)
+    print(ast)
+    let typetree: List<Analyze.TStatement> = Analyze.analyse(ast)
 
-    let lens2 = {
-      range: {
-        start: { line: 1ul, character: 0ul },
-        end: { line: 1ul, character: 0ul },
-      },
-      command: { title: "Void", command: "" },
-    }
+    let lenses = List.map((stmt: Analyze.TStatement) => {
+      let stm: Parser.PStatement = stmt.statement
+      let loc: Tokenizer.Location = stm.location
+      let lens = {
+        range: {
+          start: {
+            line: Uint32.fromNumber(loc.startLine),
+            character: Uint32.fromNumber(loc.startChar),
+          },
+          end: {
+            line: Uint32.fromNumber(loc.endLine),
+            character: Uint32.fromNumber(loc.endChar),
+          },
+        },
+        command: { title: Analyze.typeAsString(stmt.ttype), command: "" },
+      }
+      return lens
+    }, typetree)
 
-    let lens3 = {
-      range: {
-        start: { line: 2ul, character: 0ul },
-        end: { line: 2ul, character: 0ul },
-      },
-      command: { title: "Int", command: "" },
-    }
+    // let lens1 = {
+    //   range: {
+    //     start: { line: 0ul, character: 0ul },
+    //     end: { line: 0ul, character: 0ul },
+    //   },
+    //   command: { title: "Int", command: "" },
+    // }
 
-    let lenses: List<Lens> = [lens1, lens2, lens3]
+    // let lens2 = {
+    //   range: {
+    //     start: { line: 1ul, character: 0ul },
+    //     end: { line: 1ul, character: 0ul },
+    //   },
+    //   command: { title: "Void", command: "" },
+    // }
+
+    // let lens3 = {
+    //   range: {
+    //     start: { line: 2ul, character: 0ul },
+    //     end: { line: 2ul, character: 0ul },
+    //   },
+    //   command: { title: "Int", command: "" },
+    // }
+
+    // let lenses: List<Lens> = [lens1, lens2, lens3]
     return lenses
   }
 }

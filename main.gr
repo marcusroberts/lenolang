@@ -15,4 +15,6 @@ let ast =
   )
 print(ast)
 
-let _ = Analyze.analyse(ast)
+let typedtree = Analyze.analyse(ast)
+
+print(typedtree)
