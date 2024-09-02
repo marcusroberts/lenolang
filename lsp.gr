@@ -11,8 +11,6 @@ from "int64" include Int64
 from "char" include Char
 from "list" include List
 
-from "UInt32" include Uint32
-
 @unsafe
 let _RET_AREA = Memory.malloc(8n)
 
@@ -56,13 +54,10 @@ provide record Lens {
   command: Command,
 }
 
-// provide module LensTypes {
-// }
-
 // Export functions from leno:lsp/lenses
 
 module LensesExports {
-  provide let getlenses = () => {
+  provide let getlenses = (src: String) => {
     // (fail "unimplemented"): List<Lens>
 
     let lens1 = {
@@ -96,8 +91,12 @@ module LensesExports {
 
 @unsafe
 @externalName("leno:lsp/lenses#getlenses")
-provide let lenoLspLensesGetlenses = () => {
-  let result = LensesExports.getlenses()
+provide let lenoLspLensesGetlenses = (arg0: WasmI32, arg1: WasmI32) => {
+  let len_string_lift = arg1
+  let str_string_lift = DataStructures.allocateString(len_string_lift)
+  Memory.copy(WasmI32.(+)(str_string_lift, 8n), arg0, len_string_lift)
+  let str_string_lift = WasmI32.toGrain(str_string_lift): String
+  let result = LensesExports.getlenses(str_string_lift)
   let vec_list_lower = result
   let len_list_lower = WasmI32.(>>>)(
     WasmI32.fromGrain(List.length(vec_list_lower)),

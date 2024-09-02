@@ -22,7 +22,7 @@ interface lens-types {
 
 interface lenses {
   use lens-types.{lens};
-  getlenses: func() -> list<lens>;
+  getlenses: func(src:string) -> list<lens>;
 }
 
 world lsp {

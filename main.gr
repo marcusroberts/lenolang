@@ -10,7 +10,7 @@ let ast =
   Parser.parse(
     //"20 + 30 * 10; let name = \"Marcus\"; let surname = \"Roberts\"; let fullname = name + surname;"
     // "let x = (10);\nlet add = (a) => a + 10 * 20;"
-    "let add = (a) => { let x = 10; x + a;}"
+    "let add = (a) => { let x = 10; x + a;};\n\n let sub = (b) => b - 2;"
     // "let add = (a) => a + 10;"
   )
 print(ast)
