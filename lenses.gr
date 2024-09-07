@@ -1,0 +1,44 @@
+module Lenses
+
+from "./tokenizer.gr" include Tokenizer
+from "./parser.gr" include Parser
+from "./analyse.gr" include Analyze
+
+from "list" include List
+from "Uint32" include Uint32
+
+from "./lsptypes.gr" include LspTypes
+
+provide record Lens {
+  range: LspTypes.Range,
+  command: LspTypes.Command,
+}
+
+provide let getlenses = (src: String) => {
+  // (fail "unimplemented"): List<Lens>
+
+  let ast = Parser.parse(src)
+  print(ast)
+  let typetree: List<Analyze.TStatement> = Analyze.analyse(ast)
+
+  let lenses = List.map((stmt: Analyze.TStatement) => {
+    let stm: Parser.PStatement = stmt.statement
+    let loc: Tokenizer.Location = stm.location
+    let lens = {
+      range: {
+        start: {
+          line: Uint32.fromNumber(loc.startLine),
+          character: Uint32.fromNumber(loc.startChar),
+        },
+        end: {
+          line: Uint32.fromNumber(loc.endLine),
+          character: Uint32.fromNumber(loc.endChar),
+        },
+      },
+      command: { title: Analyze.typeAsString(stmt.ttype), command: "" },
+    }
+    return lens
+  }, typetree)
+
+  return lenses
+}

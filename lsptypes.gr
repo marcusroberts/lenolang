@@ -1,0 +1,19 @@
+module LspTypes
+
+provide record Resource<a> {
+  mut handle: Int32,
+  rep: a,
+}
+
+provide record Position {
+  line: Uint32,
+  character: Uint32,
+}
+provide record Range {
+  start: Position,
+  end: Position,
+}
+provide record Command {
+  title: String,
+  command: String,
+}

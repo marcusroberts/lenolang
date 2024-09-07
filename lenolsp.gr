@@ -11,11 +11,9 @@ from "int64" include Int64
 from "char" include Char
 from "list" include List
 
-from "Uint32" include Uint32
-
-from "./tokenizer.gr" include Tokenizer
-from "./parser.gr" include Parser
-from "./analyse.gr" include Analyze
+from "./lenses.gr" include Lenses
+from "./format.gr" include Format
+from "./lsptypes.gr" include LspTypes
 
 @unsafe
 let _RET_AREA = Memory.malloc(8n)
@@ -38,65 +36,6 @@ provide let cabi_realloc = (
   }
 }
 
-provide record Resource<a> {
-  mut handle: Int32,
-  rep: a,
-}
-
-provide record Position {
-  line: Uint32,
-  character: Uint32,
-}
-provide record Range {
-  start: Position,
-  end: Position,
-}
-provide record Command {
-  title: String,
-  command: String,
-}
-provide record Lens {
-  range: Range,
-  command: Command,
-}
-
-// Export functions from leno:lsp/lenses
-
-module LensesExports {
-  provide let getlenses = (src: String) => {
-    // (fail "unimplemented"): List<Lens>
-
-    let ast = Parser.parse(src)
-    print(ast)
-    let typetree: List<Analyze.TStatement> = Analyze.analyse(ast)
-
-    let lenses = List.map((stmt: Analyze.TStatement) => {
-      let stm: Parser.PStatement = stmt.statement
-      let loc: Tokenizer.Location = stm.location
-      let lens = {
-        range: {
-          start: {
-            line: Uint32.fromNumber(loc.startLine),
-            character: Uint32.fromNumber(loc.startChar),
-          },
-          end: {
-            line: Uint32.fromNumber(loc.endLine),
-            character: Uint32.fromNumber(loc.endChar),
-          },
-        },
-        command: { title: Analyze.typeAsString(stmt.ttype), command: "" },
-      }
-      return lens
-    }, typetree)
-
-    return lenses
-  }
-
-  provide let format = (src: String) => {
-    (fail "unimplemented"): String
-  }
-}
-
 @unsafe
 @externalName("leno:lsp/lenses#getlenses")
 provide let lenoLspLensesGetlenses = (arg0: WasmI32, arg1: WasmI32) => {
@@ -104,7 +43,7 @@ provide let lenoLspLensesGetlenses = (arg0: WasmI32, arg1: WasmI32) => {
   let str_string_lift = DataStructures.allocateString(len_string_lift)
   Memory.copy(WasmI32.(+)(str_string_lift, 8n), arg0, len_string_lift)
   let str_string_lift = WasmI32.toGrain(str_string_lift): String
-  let result = LensesExports.getlenses(str_string_lift)
+  let result = Lenses.getlenses(str_string_lift)
   let vec_list_lower = result
   let len_list_lower = WasmI32.(>>>)(
     WasmI32.fromGrain(List.length(vec_list_lower)),
@@ -122,9 +61,10 @@ provide let lenoLspLensesGetlenses = (arg0: WasmI32, arg1: WasmI32) => {
         list = rest
         let base = WasmI32.(+)(result_list_lower, WasmI32.(*)(i, 32n))
         i = WasmI32.(+)(i, 1n)
-        let { range: rangerecord, command: commandrecord }: Lens = e
-        let { start: startrecord0, end: endrecord0 }: Range = rangerecord
-        let { line: linerecord1, character: characterrecord1 }: Position =
+        let { range: rangerecord, command: commandrecord }: Lenses.Lens = e
+        let { start: startrecord0, end: endrecord0 }: LspTypes.Range =
+          rangerecord
+        let { line: linerecord1, character: characterrecord1 }: LspTypes.Position =
           startrecord0
         WasmI32.store(
           base,
@@ -136,7 +76,7 @@ provide let lenoLspLensesGetlenses = (arg0: WasmI32, arg1: WasmI32) => {
           WasmI32.load(WasmI32.fromGrain(characterrecord1), 4n),
           4n
         )
-        let { line: linerecord2, character: characterrecord2 }: Position =
+        let { line: linerecord2, character: characterrecord2 }: LspTypes.Position =
           endrecord0
         WasmI32.store(
           base,
@@ -148,7 +88,7 @@ provide let lenoLspLensesGetlenses = (arg0: WasmI32, arg1: WasmI32) => {
           WasmI32.load(WasmI32.fromGrain(characterrecord2), 4n),
           12n
         )
-        let { title: titlerecord3, command: commandrecord3 }: Command =
+        let { title: titlerecord3, command: commandrecord3 }: LspTypes.Command =
           commandrecord
         let vec_list_canon_lower = titlerecord3
         let ptr_list_canon_lower = WasmI32.(+)(
@@ -187,7 +127,7 @@ provide let lenoLspLensesFormat = (arg0: WasmI32, arg1: WasmI32) => {
   let str_string_lift = DataStructures.allocateString(len_string_lift)
   Memory.copy(WasmI32.(+)(str_string_lift, 8n), arg0, len_string_lift)
   let str_string_lift = WasmI32.toGrain(str_string_lift): String
-  let result = LensesExports.format(str_string_lift)
+  let result = Format.format(str_string_lift)
   let vec_list_canon_lower = result
   let ptr_list_canon_lower = WasmI32.(+)(
     WasmI32.fromGrain(vec_list_canon_lower),
