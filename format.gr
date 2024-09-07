@@ -4,10 +4,58 @@ from "./tokenizer.gr" include Tokenizer
 from "./parser.gr" include Parser
 from "./analyse.gr" include Analyze
 
+from "list" include List
+
+use Parser.{ type PExpression, type PStatement }
+use Tokenizer.{ type Location }
+
+let rec print_statement = (stmt: PStatement) => {
+  match (stmt.statement) {
+    NullStatement => "",
+    ExpressionStatement(expr) => print_expression(expr),
+    PrintStatement(expr) => print_print(expr),
+    PAssign(name, expr) => print_assign(name, expr),
+  }
+}
+and print_expression = (expr: PExpression) => {
+  match (expr) {
+    PNull{ _ } => "",
+    PNumber{ number, _ } => toString(number),
+    PString{ string, _ } => "\"" ++ string ++ "\"",
+    PVariable{ name, _ } => name,
+    PFunction{ arg, body, _ } =>
+      "(" ++ arg ++ ") => " ++ print_expression(body),
+    PBlock{ statements, loc } => {
+      let stmts = List.map(s => print_statement(s), statements)
+      let joined = List.join(";", stmts)
+      "{ " ++ joined ++ "; }"
+    },
+    BinaryExpression{ operator, left, right, _ } =>
+      print_expression(left) ++
+        " " ++
+        operator ++
+        " " ++
+        print_expression(right),
+    //UnaryExpression{ expression: PExpression, loc: Tokenizer.Location },
+    PApp{ operator, value, _ } =>
+      operator ++ "(" ++ print_expression(value) ++ ")",
+  }
+}
+and print_print = (expr: PExpression) => {
+  "print (" ++ print_expression(expr) ++ ")"
+}
+and print_assign = (name: String, expr: PExpression) => {
+  "let " ++ name ++ " = " ++ print_expression(expr)
+}
+
 provide let format = (src: String) => {
   // (fail "unimplemented"): String
 
   let ast = Parser.parse(src)
 
-  return ""
+  let stmts = List.map(stmt => print_statement(stmt), ast.statements)
+
+  let joined = List.join(";\n\n", stmts)
+
+  joined ++ ";\n"
 }

@@ -1,0 +1,3 @@
+/Users/marcus/Projects/wit-bindgen/target/debug/wit-bindgen grain lsp.wit
+
+jco transpile lsp.wit --stub -o output
