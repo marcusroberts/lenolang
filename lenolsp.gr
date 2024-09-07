@@ -11,6 +11,12 @@ from "int64" include Int64
 from "char" include Char
 from "list" include List
 
+from "Uint32" include Uint32
+
+from "./tokenizer.gr" include Tokenizer
+from "./parser.gr" include Parser
+from "./analyse.gr" include Analyze
+
 @unsafe
 let _RET_AREA = Memory.malloc(8n)
 
