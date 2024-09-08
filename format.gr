@@ -4,14 +4,18 @@ from "./tokenizer.gr" include Tokenizer
 from "./parser.gr" include Parser
 from "./analyse.gr" include Analyze
 
+from "./doc.gr" include Doc
+
 from "list" include List
 
 use Parser.{ type PExpression, type PStatement }
 use Tokenizer.{ type Location }
 
+use Doc.{ (++) }
+
 let rec print_statement = (stmt: PStatement) => {
   match (stmt.statement) {
-    NullStatement => "",
+    NullStatement => Doc.empty,
     ExpressionStatement(expr) => print_expression(expr),
     PrintStatement(expr) => print_print(expr),
     PAssign(name, expr) => print_assign(name, expr),
@@ -19,33 +23,55 @@ let rec print_statement = (stmt: PStatement) => {
 }
 and print_expression = (expr: PExpression) => {
   match (expr) {
-    PNull{ _ } => "",
-    PNumber{ number, _ } => toString(number),
-    PString{ string, _ } => "\"" ++ string ++ "\"",
-    PVariable{ name, _ } => name,
+    PNull{ _ } => Doc.empty,
+    PNumber{ number, _ } => Doc.string(toString(number)),
+    PString{ string, _ } =>
+      Doc.string("\"") ++ Doc.string(string) ++ Doc.string("\""),
+    PVariable{ name, _ } => Doc.string(name),
     PFunction{ arg, body, _ } =>
-      "(" ++ arg ++ ") => " ++ print_expression(body),
+      Doc.parens(Doc.string(arg)) ++
+        Doc.space ++
+        Doc.string("=>") ++
+        Doc.space ++
+        print_expression(body),
     PBlock{ statements, loc } => {
       let stmts = List.map(s => print_statement(s), statements)
-      let joined = List.join(";", stmts)
-      "{ " ++ joined ++ "; }"
+      Doc.braces(
+        Doc.concat_map(
+          (f, s) => Doc.empty,
+          a => Doc.empty,
+          b => Doc.empty,
+          (f, n) =>
+            if (f)
+              n ++ Doc.string(";")
+            else
+              n ++ Doc.string(";") ++ Doc.hardline,
+          stmts
+        )
+      )
     },
     BinaryExpression{ operator, left, right, _ } =>
       print_expression(left) ++
-        " " ++
-        operator ++
-        " " ++
+        Doc.space ++
+        Doc.string(operator) ++
+        Doc.space ++
         print_expression(right),
     //UnaryExpression{ expression: PExpression, loc: Tokenizer.Location },
     PApp{ operator, value, _ } =>
-      operator ++ "(" ++ print_expression(value) ++ ")",
+      Doc.string(operator) ++ Doc.parens(print_expression(value)),
   }
 }
 and print_print = (expr: PExpression) => {
-  "print (" ++ print_expression(expr) ++ ")"
+  Doc.string("print ") ++ Doc.parens(print_expression(expr))
 }
 and print_assign = (name: String, expr: PExpression) => {
-  "let " ++ name ++ " = " ++ print_expression(expr)
+  Doc.string("let") ++
+    Doc.space ++
+    Doc.string(name) ++
+    Doc.space ++
+    Doc.string("=") ++
+    Doc.space ++
+    print_expression(expr)
 }
 
 provide let format = (src: String) => {
@@ -55,7 +81,17 @@ provide let format = (src: String) => {
 
   let stmts = List.map(stmt => print_statement(stmt), ast.statements)
 
-  let joined = List.join(";\n\n", stmts)
+  let joined = Doc.concat_map(
+    (f, s) => Doc.empty, //Doc.string("x") ++ Doc.hardline,
+    a => Doc.empty,
+    b => Doc.empty,
+    (f, n) =>
+      n ++
+        Doc.string(";") ++
+        Doc.hardline ++
+        (if (!f) Doc.hardline else Doc.empty),
+    stmts
+  )
 
-  joined ++ ";\n"
+  Doc.Engine.to_string(Doc.LF, 80, joined)
 }
